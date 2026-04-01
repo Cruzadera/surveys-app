@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Button, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../App';
 import api from '../services/api';
+import AppShell from '../components/ui/AppShell';
+import PrimaryButton from '../components/ui/PrimaryButton';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'DailyQuestion'>;
@@ -20,7 +22,6 @@ const DailyQuestionScreen: React.FC<Props> = ({ navigation, route }) => {
   useEffect(() => {
     const loadQuestion = async () => {
       if (groupId === 999) {
-        // Modo demo offline
         setQuestionId(999);
         setQuestion('¿Quién es el/la más divertido/a del grupo?');
         setQuestionType('multiple');
@@ -52,53 +53,71 @@ const DailyQuestionScreen: React.FC<Props> = ({ navigation, route }) => {
       Alert.alert('Espera', 'No hay pregunta disponible aún');
       return;
     }
-    const type = (questionType === 'single' || questionType === 'multiple') ? questionType : 'text';
+    const type = questionType === 'single' || questionType === 'multiple' ? questionType : 'text';
     navigation.navigate('Answer', { userId, groupId, groupName, questionId, questionText: question, questionType: type });
   };
 
-  const goResults = () => navigation.navigate('Results', { userId, groupId, groupName });
+  const goResults = () => navigation.navigate('Results', { userId, groupId, groupName, questionText: question });
 
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.title}>{groupName}</Text>
-        <Text style={styles.subTitle}>Pregunta del día</Text>
+    <AppShell eyebrow="Pregunta del dia" title={groupName} subtitle="Una sola pantalla clara para leer, responder y saltar a resultados.">
+      <View style={styles.questionCard}>
+        <Text style={styles.questionLabel}>Hoy toca</Text>
         {loading ? (
           <ActivityIndicator size="large" color="#4f6cff" />
         ) : (
           <>
             <Text style={styles.question}>{question}</Text>
-            <Text style={styles.questionType}>Tipo: {questionType}</Text>
+            <View style={styles.typePill}>
+              <Text style={styles.typePillText}>{questionType === 'multiple' ? 'Seleccion multiple' : questionType === 'single' ? 'Seleccion unica' : 'Respuesta libre'}</Text>
+            </View>
           </>
         )}
-        <View style={styles.buttonArea}>
-          <Button title="Responder" onPress={goAnswer} disabled={loading || !questionId} />
-        </View>
-        <View style={styles.buttonArea}>
-          <Button title="Ver resultados" onPress={goResults} color="#5863ff" />
-        </View>
       </View>
-    </View>
+
+      <PrimaryButton title="Responder" onPress={goAnswer} disabled={loading || !questionId} />
+      <PrimaryButton title="Ver resultados" onPress={goResults} variant="secondary" style={styles.secondaryButton} />
+    </AppShell>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 16, backgroundColor: '#f3f6ff' },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 8
+  questionCard: {
+    borderRadius: 24,
+    backgroundColor: '#eaf0ff',
+    padding: 18,
+    marginBottom: 18
   },
-  title: { fontSize: 24, fontWeight: '700', textAlign: 'center', marginBottom: 8, color: '#334175' },
-  subTitle: { fontSize: 16, textAlign: 'center', marginBottom: 16, color: '#5f6a86' },
-  question: { fontSize: 18, textAlign: 'center', marginBottom: 8, color: '#24335f' },
-  questionType: { fontSize: 14, color: '#586a96', textAlign: 'center', marginBottom: 16 },
-  buttonArea: { marginTop: 10 }
+  questionLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    color: '#5a6a92',
+    marginBottom: 10
+  },
+  question: {
+    fontSize: 24,
+    lineHeight: 31,
+    fontWeight: '900',
+    color: '#11182c',
+    marginBottom: 14
+  },
+  typePill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#fff'
+  },
+  typePillText: {
+    color: '#38518f',
+    fontWeight: '800',
+    fontSize: 13
+  },
+  secondaryButton: {
+    marginTop: 10
+  }
 });
 
 export default DailyQuestionScreen;

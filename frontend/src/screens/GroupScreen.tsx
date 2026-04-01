@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../App';
 import api from '../services/api';
+import AppShell from '../components/ui/AppShell';
+import FieldInput from '../components/ui/FieldInput';
+import PrimaryButton from '../components/ui/PrimaryButton';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Group'>;
@@ -59,39 +62,66 @@ const GroupScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.title}>Hola {userName}</Text>
-        <Text style={styles.subtitle}>Selecciona o crea un grupo</Text>
-        <TextInput style={styles.input} placeholder="Nombre del grupo" value={groupName} onChangeText={setGroupName} />
-        <Button title={loading ? 'Cargando...' : 'Crear grupo'} onPress={handleCreateGroup} disabled={loading} />
-        <Text style={styles.or}>o</Text>
-        <TextInput style={styles.input} placeholder="Código de invitación" value={groupCode} onChangeText={setGroupCode} />
-        <Button title={loading ? 'Cargando...' : 'Unirse a grupo'} onPress={handleJoinGroup} disabled={loading || !groupCode.trim()} />
-        <View style={styles.buttonSpace}>
-          <Button title="Usar Grupo Demo (sin API)" onPress={handleDemoGroup} />
-        </View>
+    <AppShell
+      eyebrow="Tu circulo"
+      title={`Hola ${userName}`}
+      subtitle="Crea un espacio nuevo o entra en uno existente. La pantalla ahora sigue el mismo tono social, redondeado y claro que resultados."
+    >
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Crear grupo</Text>
+        <FieldInput
+          label="Nombre del grupo"
+          placeholder="Ej. Roomies, Oficina o Amigos"
+          value={groupName}
+          onChangeText={setGroupName}
+        />
+        <PrimaryButton title={loading ? 'Creando...' : 'Crear grupo'} onPress={handleCreateGroup} loading={loading} />
       </View>
-    </View>
+
+      <View style={styles.divider} />
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Unirte con codigo</Text>
+        <FieldInput
+          label="Codigo de invitacion"
+          placeholder="Pega aqui tu codigo"
+          value={groupCode}
+          onChangeText={setGroupCode}
+          autoCapitalize="characters"
+          autoCorrect={false}
+        />
+        <PrimaryButton
+          title={loading ? 'Uniendote...' : 'Unirse al grupo'}
+          onPress={handleJoinGroup}
+          disabled={!groupCode.trim()}
+          loading={loading}
+          variant="secondary"
+        />
+      </View>
+
+      <PrimaryButton title="Usar grupo demo" onPress={handleDemoGroup} variant="secondary" style={styles.demoButton} />
+    </AppShell>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 16, backgroundColor: '#f3f6ff' },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 8
+  section: {
+    marginBottom: 8
   },
-  title: { fontSize: 24, fontWeight: '700', textAlign: 'center', marginBottom: 8, color: '#334175' },
-  subtitle: { fontSize: 16, textAlign: 'center', marginBottom: 16, color: '#5f6a86' },
-  input: { borderWidth: 1, borderColor: '#ccd2e5', borderRadius: 10, padding: 12, marginBottom: 12, backgroundColor: '#fafbff' },
-  or: { textAlign: 'center', marginVertical: 8, color: '#6f7b9a' },
-  buttonSpace: { marginTop: 12 }
+  sectionTitle: {
+    marginBottom: 14,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#11182c'
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#dde4f7',
+    marginVertical: 18
+  },
+  demoButton: {
+    marginTop: 12
+  }
 });
 
 export default GroupScreen;

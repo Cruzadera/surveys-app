@@ -1,85 +1,151 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Button, StyleSheet, ActivityIndicator, Alert, ScrollView, Image } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  FlatList,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../App';
 import api from '../services/api';
+import ResultDetailItem from '../components/results/ResultDetailItem';
+import { ResultDetail, ResultVoter } from '../components/results/types';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Results'>;
   route: RouteProp<RootStackParamList, 'Results'>;
 };
 
-type Voter = { name: string; avatar: string };
+type RankingApiItem = {
+  id?: string | number;
+  name: string;
+  avatar?: string;
+  color?: string;
+  score: number;
+  voters: Array<{
+    id?: string | number;
+    name: string;
+    avatar?: string;
+  }>;
+};
 
-type RankingItem = { name: string; score: number; voters: Voter[] };
+const COLORS = ['#ffb703', '#ff6b6b', '#6f42c1', '#4f6cff', '#20c997', '#fd7e14'];
 
-const COLORS = ['#ffc107', '#ff6b6b', '#6f42c1', '#4f6cff', '#20c997', '#fd7e14'];
+const getAvatarUrl = (name: string, background = 'ffffff', color = '1f2a44', size = 96) =>
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${background.replace('#', '')}&color=${color.replace('#', '')}&rounded=true&size=${size}`;
 
-const getAvatarUrl = (name: string) =>
-  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=fff&color=374151&rounded=true&size=64`;
+const normalizeVoter = (voter: RankingApiItem['voters'][number], index: number, paletteColor: string): ResultVoter => ({
+  id: String(voter.id ?? `${voter.name}-${index}`),
+  name: voter.name,
+  avatar: voter.avatar || getAvatarUrl(voter.name, 'ffffff', paletteColor)
+});
+
+const normalizeRankingItem = (item: RankingApiItem, index: number): ResultDetail => {
+  const color = item.color || COLORS[index % COLORS.length];
+  return {
+    id: String(item.id ?? `${item.name}-${index}`),
+    name: item.name,
+    avatar: item.avatar || getAvatarUrl(item.name, color, 'ffffff'),
+    color,
+    score: item.score,
+    voters: (item.voters || []).map((voter, voterIndex) => normalizeVoter(voter, voterIndex, color))
+  };
+};
 
 const ResultsScreen: React.FC<Props> = ({ navigation, route }) => {
   const { userId, groupId, groupName, questionText } = route.params;
-  const [rankings, setRankings] = useState<RankingItem[]>([]);
+  const [rankings, setRankings] = useState<ResultDetail[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isVisible, setIsVisible] = useState(false);
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const sheetTranslateY = useRef(new Animated.Value(540)).current;
 
   useEffect(() => {
     const loadResults = async () => {
       try {
         if (groupId === 999) {
-          setRankings([
-            {
-              name: 'Adrian',
-              score: 23,
-              voters: [
-                { name: 'Dani', avatar: getAvatarUrl('Dani') },
-                { name: 'El cojo', avatar: getAvatarUrl('El cojo') },
-                { name: 'Marco', avatar: getAvatarUrl('Marco') }
-              ]
-            },
-            {
-              name: 'Dani',
-              score: 23,
-              voters: [
-                { name: 'Adrian', avatar: getAvatarUrl('Adrian') },
-                { name: 'Virgi', avatar: getAvatarUrl('Virgi') },
-                { name: 'Elena', avatar: getAvatarUrl('Elena') }
-              ]
-            },
-            {
-              name: 'El cojo',
-              score: 23,
-              voters: [
-                { name: 'Adrian', avatar: getAvatarUrl('Adrian') },
-                { name: 'Marco', avatar: getAvatarUrl('Marco') },
-                { name: 'Dani', avatar: getAvatarUrl('Dani') }
-              ]
-            },
-            {
-              name: 'Marco',
-              score: 15,
-              voters: [
-                { name: 'Virgi', avatar: getAvatarUrl('Virgi') },
-                { name: 'Elena', avatar: getAvatarUrl('Elena') }
-              ]
-            },
-            {
-              name: 'Virgi',
-              score: 7,
-              voters: [{ name: 'Dani', avatar: getAvatarUrl('Dani') }]
-            },
-            {
-              name: 'Elena',
-              score: 7,
-              voters: [{ name: 'Adrian', avatar: getAvatarUrl('Adrian') }]
-            }
-          ]);
+          setRankings(
+            [
+              {
+                id: 'adrian',
+                name: 'Adrian',
+                avatar: getAvatarUrl('Adrian', 'ffb703', 'ffffff'),
+                color: '#ffb703',
+                score: 23,
+                voters: [
+                  { id: 'dani', name: 'Dani', avatar: getAvatarUrl('Dani', 'ffffff', 'ffb703') },
+                  { id: 'el-cojo', name: 'El cojo', avatar: getAvatarUrl('El cojo', 'ffffff', 'ffb703') },
+                  { id: 'marco', name: 'Marco', avatar: getAvatarUrl('Marco', 'ffffff', 'ffb703') }
+                ]
+              },
+              {
+                id: 'dani',
+                name: 'Dani',
+                avatar: getAvatarUrl('Dani', 'ff6b6b', 'ffffff'),
+                color: '#ff6b6b',
+                score: 23,
+                voters: [
+                  { id: 'adrian', name: 'Adrian', avatar: getAvatarUrl('Adrian', 'ffffff', 'ff6b6b') },
+                  { id: 'virgi', name: 'Virgi', avatar: getAvatarUrl('Virgi', 'ffffff', 'ff6b6b') },
+                  { id: 'elena', name: 'Elena', avatar: getAvatarUrl('Elena', 'ffffff', 'ff6b6b') }
+                ]
+              },
+              {
+                id: 'el-cojo',
+                name: 'El cojo',
+                avatar: getAvatarUrl('El cojo', '6f42c1', 'ffffff'),
+                color: '#6f42c1',
+                score: 23,
+                voters: [
+                  { id: 'adrian', name: 'Adrian', avatar: getAvatarUrl('Adrian', 'ffffff', '6f42c1') },
+                  { id: 'marco', name: 'Marco', avatar: getAvatarUrl('Marco', 'ffffff', '6f42c1') },
+                  { id: 'dani', name: 'Dani', avatar: getAvatarUrl('Dani', 'ffffff', '6f42c1') }
+                ]
+              },
+              {
+                id: 'marco',
+                name: 'Marco',
+                avatar: getAvatarUrl('Marco', '4f6cff', 'ffffff'),
+                color: '#4f6cff',
+                score: 15,
+                voters: [
+                  { id: 'virgi', name: 'Virgi', avatar: getAvatarUrl('Virgi', 'ffffff', '4f6cff') },
+                  { id: 'elena', name: 'Elena', avatar: getAvatarUrl('Elena', 'ffffff', '4f6cff') }
+                ]
+              },
+              {
+                id: 'virgi',
+                name: 'Virgi',
+                avatar: getAvatarUrl('Virgi', '20c997', 'ffffff'),
+                color: '#20c997',
+                score: 7,
+                voters: [{ id: 'dani', name: 'Dani', avatar: getAvatarUrl('Dani', 'ffffff', '20c997') }]
+              },
+              {
+                id: 'elena',
+                name: 'Elena',
+                avatar: getAvatarUrl('Elena', 'fd7e14', 'ffffff'),
+                color: '#fd7e14',
+                score: 7,
+                voters: [{ id: 'adrian', name: 'Adrian', avatar: getAvatarUrl('Adrian', 'ffffff', 'fd7e14') }]
+              }
+            ].sort((a, b) => b.score - a.score)
+          );
           return;
         }
 
         const { data } = await api.getResults(groupId);
-        setRankings(data.ranking || []);
+        setRankings(
+          ((data.ranking || []) as RankingApiItem[])
+            .map((item, index) => normalizeRankingItem(item, index))
+            .sort((a, b) => b.score - a.score)
+        );
       } catch (error) {
         console.error('Error resultados', error);
         Alert.alert('Error', 'No se pudieron obtener los resultados del grupo');
@@ -91,131 +157,245 @@ const ResultsScreen: React.FC<Props> = ({ navigation, route }) => {
     loadResults();
   }, [groupId]);
 
-  const totalScore = rankings.reduce((sum, item) => sum + item.score, 0);
-  const filledCount = rankings.length;
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    setIsVisible(true);
+    overlayOpacity.setValue(0);
+    sheetTranslateY.setValue(520);
+
+    Animated.parallel([
+      Animated.timing(overlayOpacity, {
+        toValue: 1,
+        duration: 240,
+        useNativeDriver: true
+      }),
+      Animated.spring(sheetTranslateY, {
+        toValue: 0,
+        damping: 18,
+        stiffness: 140,
+        mass: 0.9,
+        useNativeDriver: true
+      })
+    ]).start();
+  }, [loading, overlayOpacity, sheetTranslateY]);
+
+  const closeModal = () => {
+    Animated.parallel([
+      Animated.timing(overlayOpacity, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true
+      }),
+      Animated.timing(sheetTranslateY, {
+        toValue: 520,
+        duration: 220,
+        useNativeDriver: true
+      })
+    ]).start(({ finished }) => {
+      if (finished) {
+        setIsVisible(false);
+        navigation.navigate('DailyQuestion', { userId, groupId, groupName });
+      }
+    });
+  };
+
+  const filledCount = new Set(rankings.flatMap((item) => item.voters.map((voter) => voter.id))).size;
 
   return (
     <View style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.title}>{questionText || 'Resultados de la pregunta'}</Text>
-        <Text style={styles.subTitle}>{groupName}</Text>
-        {loading ? (
-          <ActivityIndicator size="large" color="#4f6cff" />
-        ) : (
-          <>
-            <Text style={styles.infoText}>Han respondido {filledCount} participantes</Text>
-            <ScrollView style={styles.scrollArea}>
+      <View style={styles.backgroundHaloTop} />
+      <View style={styles.backgroundHaloBottom} />
+
+      {loading ? (
+        <View style={styles.loaderCard}>
+          <ActivityIndicator size="large" color="#ffffff" />
+          <Text style={styles.loaderText}>Preparando el detalle social de votos...</Text>
+        </View>
+      ) : (
+        <Modal visible={isVisible} transparent animationType="none" onRequestClose={closeModal}>
+          <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
+            <Pressable style={styles.overlayDismissArea} onPress={closeModal} />
+
+            <Animated.View style={[styles.sheet, { transform: [{ translateY: sheetTranslateY }] }]}>
+              <View style={styles.handle} />
+              <Text style={styles.eyebrow}>Resumen social</Text>
+              <Text style={styles.title}>{questionText || 'Resultados de la pregunta'}</Text>
+              <Text style={styles.subTitle}>{groupName}</Text>
+              <Text style={styles.infoText}>{filledCount} participantes visibles en menos de 2 segundos</Text>
+
               {rankings.length > 0 ? (
-                rankings.map((item, index) => {
-                  const percent = totalScore > 0 ? Math.round((item.score / totalScore) * 100) : 0;
-                  const barColor = COLORS[index % COLORS.length];
-
-                  return (
-                    <View key={item.name} style={styles.optionRow}>
-                      <View style={styles.progressBackground}>
-                        <View style={[styles.progressFill, { width: `${percent}%`, backgroundColor: barColor }]} />
-                      </View>
-
-                      <View style={styles.optionDetail}>
-                        <View style={styles.optionLabelRow}>
-                          <Text style={styles.optionName}>{item.name}</Text>
-                          <Text style={styles.percentText}>{percent}%</Text>
-                        </View>
-                        <Text style={styles.optionSubText}>{item.score} votos</Text>
-
-                        <View style={styles.voterRow}>
-                          {item.voters.slice(0, 4).map((voter, vi) => (
-                            <Image key={`${item.name}-${vi}`} source={{ uri: voter.avatar }} style={[styles.voterAvatar, { marginLeft: vi === 0 ? 0 : -10 }]} />
-                          ))}
-                          {item.voters.length > 4 && (
-                            <View style={styles.moreVotesBadge}>
-                              <Text style={styles.moreVotesText}>+{item.voters.length - 4}</Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })
+                <FlatList
+                  data={rankings}
+                  keyExtractor={(item) => item.id}
+                  style={styles.list}
+                  contentContainerStyle={styles.listContent}
+                  showsVerticalScrollIndicator={false}
+                  ItemSeparatorComponent={() => <View style={styles.separator} />}
+                  renderItem={({ item, index }) => <ResultDetailItem item={item} isLeader={index === 0} />}
+                />
               ) : (
-                <Text style={styles.emptyText}>Aún no se han registrado respuestas</Text>
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyText}>Aun no se han registrado votos para mostrar</Text>
+                </View>
               )}
-            </ScrollView>
 
-            <View style={styles.commentPlaceholder}>
-              <Text style={styles.commentPlaceholderText}>Sección de comentarios disponible pronto...</Text>
-            </View>
-
-            <View style={styles.buttonArea}>
-              <Button
-                title="Volver a pregunta"
-                onPress={() => navigation.navigate('DailyQuestion', { userId, groupId, groupName })}
-                color="#5863ff"
-              />
-            </View>
-          </>
-        )}
-      </View>
+              <View style={styles.footer}>
+                <Pressable style={styles.closeButton} onPress={closeModal} android_ripple={{ color: '#ffffff20' }}>
+                  <Text style={styles.closeButtonText}>Cerrar</Text>
+                </Pressable>
+              </View>
+            </Animated.View>
+          </Animated.View>
+        </Modal>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 10, backgroundColor: '#eff3ff' },
-  card: {
-    width: '96%',
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.09,
-    shadowRadius: 14,
-    elevation: 10,
-    maxHeight: '96%'
+  container: {
+    flex: 1,
+    backgroundColor: '#0d1324',
+    alignItems: 'center',
+    justifyContent: 'center'
   },
-  title: { fontSize: 24, fontWeight: '700', textAlign: 'center', marginBottom: 8, color: '#334175' },
-  subTitle: { fontSize: 16, textAlign: 'center', marginBottom: 10, color: '#5f6a86' },
-  infoText: { fontSize: 14, color: '#5f6a86', marginBottom: 12, textAlign: 'center' },
-  scrollArea: { maxHeight: 360 },
-  optionRow: {
-    marginBottom: 14,
-    borderRadius: 16,
-    backgroundColor: '#f6f8ff',
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#e3e8f9'
+  backgroundHaloTop: {
+    position: 'absolute',
+    top: -60,
+    right: -40,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: '#24385f'
   },
-  progressBackground: {
+  backgroundHaloBottom: {
+    position: 'absolute',
+    bottom: -70,
+    left: -30,
+    width: 210,
+    height: 210,
+    borderRadius: 120,
+    backgroundColor: '#1b2742'
+  },
+  loaderCard: {
+    width: '84%',
+    borderRadius: 30,
+    paddingVertical: 28,
+    paddingHorizontal: 24,
+    backgroundColor: '#18233dcf',
+    alignItems: 'center'
+  },
+  loaderText: {
+    marginTop: 14,
+    color: '#dfe7ff',
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center'
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(7, 10, 19, 0.62)',
+    justifyContent: 'flex-end'
+  },
+  overlayDismissArea: {
+    flex: 1
+  },
+  sheet: {
     width: '100%',
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#eef3ff',
-    marginBottom: 8,
+    alignSelf: 'stretch',
+    maxHeight: '88%',
+    minHeight: '56%',
+    paddingTop: 12,
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    backgroundColor: '#f6f8ff',
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: -8 },
+    elevation: 18,
     overflow: 'hidden'
   },
-  progressFill: {
-    height: '100%',
-    borderRadius: 14
+  handle: {
+    alignSelf: 'center',
+    width: 54,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: '#d2d9ef',
+    marginBottom: 14
   },
-  optionDetail: { marginTop: -52, paddingTop: 10 },
-  optionLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  optionName: { color: '#1b2766', fontWeight: 'bold', fontSize: 16 },
-  percentText: { color: '#1b2766', fontWeight: '700', fontSize: 14, backgroundColor: '#ffffffc8', paddingHorizontal: 8, borderRadius: 10 },
-  optionSubText: { marginTop: 4, color: '#3f557d', fontSize: 13 },
-  voterRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  voterAvatar: { width: 28, height: 28, borderRadius: 14, borderWidth: 1.4, borderColor: '#fff' },
-  moreVotesBadge: {
-    marginLeft: 8,
-    backgroundColor: '#dbe7ff',
-    borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 2
+  eyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: '#63708f',
+    textAlign: 'center'
   },
-  moreVotesText: { fontSize: 12, fontWeight: '700', color: '#3751a6' },
-  emptyText: { color: '#51618f', textAlign: 'center', paddingVertical: 24 },
-  commentPlaceholder: { marginTop: 12, padding: 10, borderWidth: 1, borderColor: '#d2daf0', borderRadius: 10, backgroundColor: '#f6f8ff' },
-  commentPlaceholderText: { textAlign: 'center', color: '#586b90', fontSize: 13 },
-  buttonArea: { marginTop: 14 }
+  title: {
+    fontSize: 26,
+    lineHeight: 31,
+    fontWeight: '900',
+    color: '#11182c',
+    textAlign: 'center',
+    marginTop: 8
+  },
+  subTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#66738f',
+    textAlign: 'center',
+    marginTop: 6
+  },
+  infoText: {
+    marginTop: 10,
+    marginBottom: 18,
+    textAlign: 'center',
+    color: '#7b879f',
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  listContent: {
+    paddingBottom: 14
+  },
+  list: {
+    flexGrow: 0
+  },
+  separator: {
+    height: 14
+  },
+  emptyState: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  emptyText: {
+    color: '#5e6983',
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center'
+  },
+  footer: {
+    paddingTop: 10,
+    backgroundColor: '#f6f8ff'
+  },
+  closeButton: {
+    minHeight: 56,
+    borderRadius: 20,
+    backgroundColor: '#131c33',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  closeButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800'
+  }
 });
 
 export default ResultsScreen;
