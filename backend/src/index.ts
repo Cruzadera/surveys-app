@@ -49,8 +49,8 @@ initDB()
       startPollCron();
     }
 
-    app.listen(port, () => {
-      console.log(`Back-end running on http://localhost:${port}`);
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`Back-end running on http://0.0.0.0:${port}`);
     });
   })
   .catch((error) => {

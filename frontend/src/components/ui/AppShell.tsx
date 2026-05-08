@@ -1,12 +1,13 @@
 import React from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { RefreshControlProps } from 'react-native';
 
 type Props = {
   eyebrow?: string;
   title: string;
   subtitle?: string;
   headerAction?: React.ReactNode;
-  refreshControl?: React.ReactElement;
+  refreshControl?: React.ReactElement<RefreshControlProps>;
   children: React.ReactNode;
 };
 
