@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import api from '../services/api';
 import AppShell from '../components/ui/AppShell';
 import PrimaryButton from '../components/ui/PrimaryButton';
@@ -85,7 +85,17 @@ const AuthCallbackScreen: React.FC<Props> = ({ token = '', pollId = '', onStanda
           <>
             <Text style={styles.errorTitle}>Acceso no disponible</Text>
             <Text style={styles.message}>{errorMessage}</Text>
-            <PrimaryButton title="Reintentar" onPress={() => window.location.reload()} />
+            <PrimaryButton
+              title="Reintentar"
+              onPress={() => {
+                if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                  window.location.reload();
+                  return;
+                }
+
+                onStandaloneFallback();
+              }}
+            />
             <PrimaryButton
               title="Entrar con email"
               onPress={onStandaloneFallback}

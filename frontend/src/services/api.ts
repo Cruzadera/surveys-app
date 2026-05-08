@@ -27,10 +27,24 @@ const getExpoHost = () => {
 };
 
 const detectedHost = getExpoHost();
-const apiBaseUrl = envApiUrl
+const normalizeNativeEnvApiUrl = (value?: string) => {
+  if (!value || Platform.OS === 'web' || !detectedHost) {
+    return value;
+  }
+
+  // On physical devices, localhost/127.0.0.1 points to the phone, not the dev machine.
+  return value
+    .replace(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i, (_fullMatch, _host, port) => `http://${detectedHost}${port ?? ''}`)
+    .replace(/^https:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i, (_fullMatch, _host, port) => `https://${detectedHost}${port ?? ''}`);
+};
+
+const normalizedEnvApiUrl = normalizeNativeEnvApiUrl(envApiUrl);
+
+const apiBaseUrl = normalizedEnvApiUrl
   || (Platform.OS === 'web' ? '/api' : (detectedHost ? `http://${detectedHost}:3001/api` : PRODUCTION_API_URL));
 
 console.log('[api] envApiUrl:', envApiUrl);
+console.log('[api] normalizedEnvApiUrl:', normalizedEnvApiUrl);
 console.log('[api] baseURL:', apiBaseUrl);
 
 const api = axios.create({

@@ -1,0 +1,31 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+RUN apk add --no-cache wget
+
+# Install dependencies first for better layer caching
+COPY package*.json ./
+RUN npm ci
+
+# Expo SDK 54 may prompt interactively to log in for unverified Expo Go flows.
+# In a detached Docker service this blocks startup, so force anonymous fallback.
+RUN node -e 'const fs=require("fs");const p="node_modules/expo/node_modules/@expo/cli/build/src/api/user/actions.js";let s=fs.readFileSync(p,"utf8");const from="async function tryGetUserAsync() {";const i=s.indexOf(from);if(i===-1)throw new Error("tryGetUserAsync not found");const j=s.indexOf("\n}\n\n//# sourceMappingURL=actions.js.map",i);if(j===-1)throw new Error("tryGetUserAsync end not found");const replacement="async function tryGetUserAsync() {\n    return await (0, _user.getUserAsync)().catch(()=>null);\n}\n";s=s.slice(0,i)+replacement+s.slice(j+3);fs.writeFileSync(p,s);'
+
+COPY . .
+
+ENV EXPO_NO_TELEMETRY=1
+
+EXPOSE 8081
+
+# Start Metro and immediately trigger a background bundle pre-warm so the
+# first connection from Expo Go doesn't have to wait for cold compilation.
+CMD sh -c '\
+  npx expo start --host lan --port 8081 & \
+  METRO_PID=$! ; \
+  echo "[warmup] Waiting for Metro to be ready..." ; \
+  until wget -qO- http://127.0.0.1:8081/status 2>/dev/null | grep -q running; do sleep 2; done ; \
+  echo "[warmup] Metro ready — pre-compiling Android bundle..." ; \
+  wget -qO /dev/null "http://127.0.0.1:8081/node_modules/expo/AppEntry.bundle?platform=android&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.bytecode=1&transform.routerRoot=app&unstable_transformProfile=hermes-stable" && echo "[warmup] Bundle ready!" || echo "[warmup] Bundle pre-warm failed (non-fatal)" ; \
+  wait $METRO_PID \
+'

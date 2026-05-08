@@ -1,0 +1,36 @@
+services:
+  yoice-backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: yoice-backend
+    env_file:
+      - backend/.env
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  yoice-frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile.dev
+    container_name: yoice-frontend
+    environment:
+      # Tells Metro what IP to advertise in the QR code → exp://192.168.1.31:8081
+      - REACT_NATIVE_PACKAGER_HOSTNAME=192.168.1.31
+      # Backend URL baked into the JS bundle by Babel at Metro bundle time
+      - EXPO_PUBLIC_API_URL=http://192.168.1.31:3001/api
+      - EXPO_NO_TELEMETRY=1
+    ports:
+      - "8081:8081"
+    stdin_open: true
+    tty: true
+    volumes:
+      # Mount source so edits are reflected without rebuild
+      - ./frontend/src:/app/src
+      - ./frontend/assets:/app/assets
+    depends_on:
+      - yoice-backend
+    restart: unless-stopped
