@@ -98,6 +98,22 @@ export default function App() {
 
   useEffect(() => {
     let mounted = true;
+    let bootWatchdog: ReturnType<typeof setTimeout> | null = null;
+
+    const withTimeout = async <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+      let timer: ReturnType<typeof setTimeout> | null = null;
+
+      try {
+        return await Promise.race([
+          promise,
+          new Promise<T>((resolve) => {
+            timer = setTimeout(() => resolve(fallback), ms);
+          })
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    };
 
     const cleanUrl = () => {
       if (typeof window !== 'undefined' && window.history?.replaceState) {
@@ -115,6 +131,16 @@ export default function App() {
     const bootstrap = async () => {
       console.log('[bootstrap] start');
 
+      // Defensive fallback in case native modules hang on some Android devices.
+      bootWatchdog = setTimeout(() => {
+        if (!mounted) {
+          return;
+        }
+
+        console.warn('[bootstrap] watchdog fallback → StandaloneAccess');
+        setScreen({ name: 'StandaloneAccess' });
+      }, 12000);
+
       const href = typeof window !== 'undefined' ? window.location.href : null;
       const initialUrl = href || (await getInitialUrlSafe());
       console.log('[bootstrap] initialUrl:', initialUrl);
@@ -130,11 +156,16 @@ export default function App() {
       }
 
       // Try to restore a previously saved session.
-      const savedToken = loadToken();
+      const savedToken = await withTimeout(loadToken(), 2000, null);
       if (savedToken) {
         try {
           console.log('[bootstrap] restoring session…');
-          const { data: user } = await api.getMe(savedToken);
+          const response = await withTimeout(api.getMe(savedToken), 12000, null as Awaited<ReturnType<typeof api.getMe>> | null);
+          if (!response) {
+            throw new Error('Timed out while restoring session');
+          }
+
+          const { data: user } = response;
           if (mounted) {
             // If the URL pointed to a specific poll, go directly there.
             const pollIdFromUrl =
@@ -163,18 +194,28 @@ export default function App() {
           return;
         } catch (err) {
           console.warn('[bootstrap] session restore failed:', err);
-          clearToken();
+          await clearToken();
         }
       }
 
       cleanUrl();
       console.log('[bootstrap] done →', urlState.name);
       if (mounted) setScreen(urlState);
+
+      if (bootWatchdog) {
+        clearTimeout(bootWatchdog);
+        bootWatchdog = null;
+      }
     };
 
     bootstrap().catch((err) => {
       console.error('[bootstrap] fatal error:', err);
       if (mounted) setScreen({ name: 'StandaloneAccess' });
+
+      if (bootWatchdog) {
+        clearTimeout(bootWatchdog);
+        bootWatchdog = null;
+      }
     });
 
     const subscription = Linking.addEventListener('url', ({ url }) => {
@@ -183,6 +224,9 @@ export default function App() {
 
     return () => {
       mounted = false;
+      if (bootWatchdog) {
+        clearTimeout(bootWatchdog);
+      }
       subscription.remove();
     };
   }, []);
@@ -199,7 +243,7 @@ export default function App() {
         <StandaloneAccessScreen
           pollId={screen.pollId}
           onAuthenticated={(params) => {
-            saveToken(params.token);
+            void saveToken(params.token);
             if (params.pollId) {
               setScreen({ name: 'Poll', token: params.token, pollId: params.pollId, userName: params.userName, avatarColor: params.avatarColor, avatarImage: params.avatarImage });
             } else {
@@ -268,7 +312,7 @@ export default function App() {
           onStandaloneFallback={() => setScreen({ name: 'StandaloneAccess' })}
           onOnboarding={(params) => setScreen({ name: 'Onboarding', ...params })}
           onGroupList={(params) => {
-            saveToken(params.token);
+            void saveToken(params.token);
             setScreen({ name: 'GroupList', ...params });
           }}
         />
@@ -295,7 +339,7 @@ export default function App() {
           pollId={screen.pollId}
           identityLabel={screen.identityLabel}
           onGroupList={(params) => {
-            saveToken(params.token);
+            void saveToken(params.token);
             setScreen({ name: 'GroupList', ...params });
           }}
         />

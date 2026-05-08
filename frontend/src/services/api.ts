@@ -27,10 +27,24 @@ const getExpoHost = () => {
 };
 
 const detectedHost = getExpoHost();
-const apiBaseUrl = envApiUrl
+const normalizeNativeEnvApiUrl = (value?: string) => {
+  if (!value || Platform.OS === 'web' || !detectedHost) {
+    return value;
+  }
+
+  // On physical devices, localhost/127.0.0.1 points to the phone, not the dev machine.
+  return value
+    .replace(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i, (_fullMatch, _host, port) => `http://${detectedHost}${port ?? ''}`)
+    .replace(/^https:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i, (_fullMatch, _host, port) => `https://${detectedHost}${port ?? ''}`);
+};
+
+const normalizedEnvApiUrl = normalizeNativeEnvApiUrl(envApiUrl);
+
+const apiBaseUrl = normalizedEnvApiUrl
   || (Platform.OS === 'web' ? '/api' : (detectedHost ? `http://${detectedHost}:3001/api` : PRODUCTION_API_URL));
 
 console.log('[api] envApiUrl:', envApiUrl);
+console.log('[api] normalizedEnvApiUrl:', normalizedEnvApiUrl);
 console.log('[api] baseURL:', apiBaseUrl);
 
 const api = axios.create({
@@ -96,6 +110,7 @@ export type AccessResponse = {
   user: {
     id: string;
     authKey: string | null;
+    email: string | null;
     name: string | null;
     avatarColor: string | null;
     avatarImage: string | null;
@@ -119,6 +134,7 @@ export type EmailLoginStartResponse = {
   user?: {
     id: string;
     authKey: string | null;
+    email: string | null;
     name: string | null;
     avatarColor: string | null;
     avatarImage: string | null;
@@ -129,10 +145,25 @@ export type EmailLoginStartResponse = {
 export type UserProfileResponse = {
   id: string;
   authKey: string | null;
+  email: string | null;
   name: string | null;
   avatarColor: string | null;
   avatarImage: string | null;
   createdAt: string;
+};
+
+export type MagicLinkVerifyResponse = {
+  token: string;
+  pollId: string | null;
+  user: {
+    id: string;
+    authKey: string | null;
+    email: string | null;
+    name: string | null;
+    avatarColor: string | null;
+    avatarImage: string | null;
+    createdAt: string;
+  };
 };
 
 export type GroupAccessResponse = {
@@ -168,6 +199,8 @@ export default {
     api.get<AccessResponse>('/auth/autologin', {
       params: { token, ...(pollId ? { pollId } : {}) }
     }),
+  verifyMagicLink: (token: string) =>
+    api.post<MagicLinkVerifyResponse>('/auth/magic-link/verify', { token }),
   startEmailLogin: (payload: { email: string; pollId?: string }) =>
     api.post<EmailLoginStartResponse>('/auth/email/start', payload),
   getMe: (token: string) => api.get<UserProfileResponse>('/user/me', authHeaders(token)),

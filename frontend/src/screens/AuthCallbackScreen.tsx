@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import api from '../services/api';
 import AppShell from '../components/ui/AppShell';
 import PrimaryButton from '../components/ui/PrimaryButton';
@@ -34,7 +34,7 @@ const AuthCallbackScreen: React.FC<Props> = ({ token = '', pollId = '', onStanda
 
         if (data.nextStep === 'onboarding') {
           onOnboarding({
-            token,
+            token: data.token,
             pollId: data.pollId || pollId,
             identityLabel: 'Acceso verificado'
           });
@@ -42,14 +42,26 @@ const AuthCallbackScreen: React.FC<Props> = ({ token = '', pollId = '', onStanda
         }
 
         onGroupList({
-          token,
+          token: data.token,
           userName: data.user.name,
           avatarColor: data.user.avatarColor,
           avatarImage: data.user.avatarImage
         });
       } catch (error) {
-        console.error('Error en autologin', error);
-        setErrorMessage('No pudimos completar el acceso. Pide un enlace nuevo.');
+        try {
+          const { data } = await api.verifyMagicLink(token);
+          onGroupList({
+            token: data.token,
+            userName: data.user.name,
+            avatarColor: data.user.avatarColor,
+            avatarImage: data.user.avatarImage
+          });
+          return;
+        } catch (verifyError) {
+          console.error('Error en autologin', error);
+          console.error('Error verificando magic link', verifyError);
+          setErrorMessage('No pudimos completar el acceso. Pide un enlace nuevo.');
+        }
       } finally {
         setLoading(false);
       }
@@ -73,7 +85,17 @@ const AuthCallbackScreen: React.FC<Props> = ({ token = '', pollId = '', onStanda
           <>
             <Text style={styles.errorTitle}>Acceso no disponible</Text>
             <Text style={styles.message}>{errorMessage}</Text>
-            <PrimaryButton title="Reintentar" onPress={() => window.location.reload()} />
+            <PrimaryButton
+              title="Reintentar"
+              onPress={() => {
+                if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                  window.location.reload();
+                  return;
+                }
+
+                onStandaloneFallback();
+              }}
+            />
             <PrimaryButton
               title="Entrar con email"
               onPress={onStandaloneFallback}
