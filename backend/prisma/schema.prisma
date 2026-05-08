@@ -7,18 +7,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AuthProvider {
+  LOCAL
+  MAGIC_LINK
+}
+
 model User {
-  id        String   @id @default(uuid())
-  authKey   String?  @unique
-  email     String?  @unique
-  name      String?
-  avatarColor String?
-  avatarImage String?
+  id           String       @id @default(uuid())
+  authKey      String?      @unique
+  email        String?      @unique
+  name         String?
+  age          Int?
+  passwordHash String?
+  authProvider AuthProvider @default(MAGIC_LINK)
+  avatarColor  String?
+  avatarImage  String?
   votes     Vote[]
   options   Option[]
   memberships GroupMember[]
   createdGroups Group[] @relation("GroupCreatedBy")
   emailLoginTokens EmailLoginToken[]
+  passwordResetTokens PasswordResetToken[]
   createdAt DateTime @default(now())
 }
 
@@ -35,6 +44,20 @@ model EmailLoginToken {
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([email])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
   @@index([expiresAt])
 }
 

@@ -194,7 +194,41 @@ export type GroupListResponse = {
   groups: GroupSummary[];
 };
 
+export type RegisterPayload = {
+  name: string;
+  age: number;
+  email: string;
+  password: string;
+};
+
+export type LoginPayload = {
+  email: string;
+  password: string;
+};
+
+export type ForgotPasswordPayload = {
+  email: string;
+};
+
+export type ResetPasswordPayload = {
+  token: string;
+  password: string;
+};
+
+export type GenericMessageResponse = {
+  ok?: boolean;
+  message: string;
+};
+
 export default {
+  register: (payload: RegisterPayload) =>
+    api.post<AccessResponse>('/auth/register', payload),
+  loginWithPassword: (payload: LoginPayload) =>
+    api.post<AccessResponse>('/auth/login', payload),
+  forgotPassword: (payload: ForgotPasswordPayload) =>
+    api.post<GenericMessageResponse>('/auth/password/forgot', payload),
+  resetPassword: (payload: ResetPasswordPayload) =>
+    api.post<GenericMessageResponse>('/auth/password/reset', payload),
   authenticateAutologin: (token: string, pollId?: string) =>
     api.get<AccessResponse>('/auth/autologin', {
       params: { token, ...(pollId ? { pollId } : {}) }

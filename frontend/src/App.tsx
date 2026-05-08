@@ -11,6 +11,7 @@ import ProfileScreen from './screens/ProfileScreen';
 import ResultsScreen from './screens/ResultsScreen';
 import StandaloneAccessScreen from './screens/StandaloneAccessScreen';
 import EmailVerifiedScreen from './screens/EmailVerifiedScreen';
+import ResetPasswordScreen from './screens/ResetPasswordScreen';
 import api, { PollResponse } from './services/api';
 import { clearToken, loadToken, saveToken } from './utils/session';
 
@@ -33,6 +34,7 @@ type ScreenState =
       };
     }
   | { name: 'EmailVerified'; token?: string; pollId?: string; email?: string }
+  | { name: 'PasswordReset'; token?: string }
   | { name: 'AuthCallback'; token?: string; pollId?: string }
   | { name: 'Onboarding'; token: string; pollId: string; identityLabel: string }
   | { name: 'Poll'; token: string; pollId: string; userName?: string | null; avatarColor?: string | null; avatarImage?: string | null }
@@ -47,6 +49,20 @@ type ScreenState =
       pollId?: string;
       poll?: PollResponse;
     };
+
+const isHandledDeepLink = (rawUrl?: string | null) => {
+  if (!rawUrl) {
+    return false;
+  }
+
+  return [
+    'auth/email/verified',
+    'auth/password/reset',
+    'auth/autologin',
+    '/poll/',
+    'standalone'
+  ].some((fragment) => rawUrl.includes(fragment));
+};
 
 const getStateFromUrl = (rawUrl?: string | null): ScreenState => {
   if (!rawUrl) {
@@ -67,6 +83,10 @@ const getStateFromUrl = (rawUrl?: string | null): ScreenState => {
 
     if (path === 'auth/email/verified' || rawUrl.includes('auth/email/verified')) {
       return { name: 'EmailVerified', token, pollId, email };
+    }
+
+    if (path === 'auth/password/reset' || rawUrl.includes('auth/password/reset')) {
+      return { name: 'PasswordReset', token };
     }
 
     if (path === 'auth/autologin' || rawUrl.includes('auth/autologin')) {
@@ -141,7 +161,10 @@ export default function App() {
         setScreen({ name: 'StandaloneAccess' });
       }, 12000);
 
-      const href = typeof window !== 'undefined' ? window.location.href : null;
+      const href =
+        typeof window !== 'undefined' && typeof window.location?.href === 'string'
+          ? window.location.href
+          : null;
       const initialUrl = href || (await getInitialUrlSafe());
       console.log('[bootstrap] initialUrl:', initialUrl);
 
@@ -149,7 +172,12 @@ export default function App() {
       console.log('[bootstrap] urlState:', urlState.name);
 
       // If the URL carries an auth token, honour it — don't restore the session.
-      if (urlState.name === 'AuthCallback' || urlState.name === 'EmailVerified') {
+      if (urlState.name === 'AuthCallback' || urlState.name === 'EmailVerified' || urlState.name === 'PasswordReset') {
+        // Clear watchdog immediately for deep-linked auth flows
+        if (bootWatchdog) {
+          clearTimeout(bootWatchdog);
+          bootWatchdog = null;
+        }
         if (mounted) setScreen(urlState);
         cleanUrl();
         return;
@@ -219,6 +247,10 @@ export default function App() {
     });
 
     const subscription = Linking.addEventListener('url', ({ url }) => {
+      if (!isHandledDeepLink(url)) {
+        return;
+      }
+
       setScreen(getStateFromUrl(url));
     });
 
@@ -330,6 +362,13 @@ export default function App() {
               pollId: screen.pollId,
             })
           }
+        />
+      ) : null}
+
+      {screen.name === 'PasswordReset' ? (
+        <ResetPasswordScreen
+          token={screen.token}
+          onBackToLogin={() => setScreen({ name: 'StandaloneAccess' })}
         />
       ) : null}
 
