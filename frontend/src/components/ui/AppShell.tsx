@@ -1,5 +1,13 @@
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 import type { RefreshControlProps } from 'react-native';
 
 type Props = {
@@ -18,20 +26,27 @@ const AppShell: React.FC<Props> = ({ eyebrow, title, subtitle, headerAction, ref
       <View style={styles.backgroundHaloMiddle} />
       <View style={styles.backgroundHaloBottom} />
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={refreshControl}
+      <KeyboardAvoidingView
+        style={styles.keyboardArea}
+        behavior={Platform.select({ ios: 'padding', android: 'height', default: undefined })}
+        keyboardVerticalOffset={Platform.select({ ios: 8, android: 20, default: 0 })}
       >
-        <View style={styles.header}>
-          {headerAction ? <View style={styles.headerAction}>{headerAction}</View> : null}
-          {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          refreshControl={refreshControl}
+        >
+          <View style={styles.header}>
+            {headerAction ? <View style={styles.headerAction}>{headerAction}</View> : null}
+            {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
+            <Text style={styles.title}>{title}</Text>
+            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          </View>
 
-        <View style={styles.card}>{children}</View>
-      </ScrollView>
+          <View style={styles.card}>{children}</View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -40,6 +55,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#0d1324'
+  },
+  keyboardArea: {
+    flex: 1
   },
   scrollContent: {
     flexGrow: 1,
