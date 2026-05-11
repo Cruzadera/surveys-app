@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AppShell from '../components/ui/AppShell';
 import FieldInput from '../components/ui/FieldInput';
@@ -16,6 +16,16 @@ const ResetPasswordScreen: React.FC<Props> = ({ token, onBackToLogin }) => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+        redirectTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const handleReset = async () => {
     setErrorMessage('');
@@ -42,6 +52,9 @@ const ResetPasswordScreen: React.FC<Props> = ({ token, onBackToLogin }) => {
       setSuccessMessage(data.message || 'Contrasena actualizada. Ya puedes iniciar sesion.');
       setPassword('');
       setConfirmPassword('');
+      redirectTimeoutRef.current = setTimeout(() => {
+        onBackToLogin();
+      }, 900);
     } catch (error: any) {
       const msg = error?.response?.data?.message || 'No se pudo actualizar la contrasena.';
       setErrorMessage(msg);
