@@ -31,10 +31,13 @@ const COLORS = ['#ffb703', '#ff6b6b', '#4f6cff', '#20c997', '#6f42c1', '#fd7e14'
 const PollScreen: React.FC<Props> = ({ token, pollId, userName, avatarColor, avatarImage, onResults, onProfile, onGroupList }) => {
   const [poll, setPoll] = useState<PollResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [selectedOption, setSelectedOption] = useState('');
 
   const loadPoll = async () => {
+    setLoading(true);
+    setErrorMessage('');
     try {
       const { data } = await api.getPoll(token, pollId);
       setPoll(data);
@@ -42,9 +45,13 @@ const PollScreen: React.FC<Props> = ({ token, pollId, userName, avatarColor, ava
       if (data.userVote) {
         onResults(data);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error cargando encuesta', error);
-      Alert.alert('Error', 'No se pudo obtener la encuesta.');
+      const message =
+        error?.response?.data?.message
+        || (error?.code === 'ECONNABORTED' ? 'La carga de la encuesta tardó demasiado. Inténtalo de nuevo.' : 'No se pudo obtener la encuesta.');
+      setErrorMessage(message);
+      setPoll(null);
     } finally {
       setLoading(false);
     }
@@ -97,10 +104,25 @@ const PollScreen: React.FC<Props> = ({ token, pollId, userName, avatarColor, ava
           <Text style={styles.backLinkText}>{"← Mis grupos"}</Text>
         </Pressable>
       ) : null}
-      {loading || !poll ? (
+      {loading ? (
         <View style={styles.loaderBox}>
           <ActivityIndicator size="large" color="#4f6cff" />
           <Text style={styles.loaderText}>Recuperando la encuesta y tu estado de voto…</Text>
+        </View>
+      ) : errorMessage ? (
+        <View style={styles.loaderBox}>
+          <Text style={styles.errorTitle}>No se pudo cargar la encuesta</Text>
+          <Text style={styles.loaderText}>{errorMessage}</Text>
+          <PrimaryButton title="Reintentar" onPress={loadPoll} />
+          {onGroupList ? (
+            <PrimaryButton title="Volver a mis grupos" onPress={onGroupList} variant="secondary" style={styles.retryBackButton} />
+          ) : null}
+        </View>
+      ) : !poll ? (
+        <View style={styles.loaderBox}>
+          <Text style={styles.errorTitle}>Encuesta no disponible</Text>
+          <Text style={styles.loaderText}>No encontramos datos de esta encuesta ahora mismo.</Text>
+          <PrimaryButton title="Reintentar" onPress={loadPoll} />
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false}>
@@ -193,6 +215,14 @@ const styles = StyleSheet.create({
     color: '#607095',
     fontSize: 15,
     lineHeight: 21
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#16203a'
+  },
+  retryBackButton: {
+    marginTop: 10
   },
   heroCard: {
     padding: 18,
