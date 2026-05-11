@@ -248,7 +248,13 @@ export default {
   joinGroup: (token: string, inviteCode: string) =>
     api.post<GroupAccessResponse>('/groups/join', { inviteCode }, authHeaders(token)),
   getPoll: (token: string, pollId: string) =>
-    api.get<PollResponse>(`/polls/${pollId}`, authHeaders(token)),
+    api.get<PollResponse>(`/polls/${pollId}`, {
+      ...authHeaders(token),
+      timeout: 25000
+    }),
   submitVote: (token: string, pollId: string, optionId: string) =>
-    api.post('/votes', { pollId, optionId }, authHeaders(token))
+    api.post('/votes', { pollId, optionId }, {
+      ...authHeaders(token),
+      timeout: 25000
+    })
 };

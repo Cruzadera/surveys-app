@@ -38,7 +38,6 @@ const buildResults = (
       }>;
     }
   >();
-
   for (const option of options) {
     ranking.set(option.id, {
       optionId: option.id,
@@ -97,7 +96,11 @@ export const getPollHandler = async (req: Request, res: Response) => {
       where: { id: req.params.pollId },
       include: {
         question: true,
-        group: true,
+        group: {
+          select: {
+            visibility: true
+          }
+        },
         options: {
           select: {
             id: true,
@@ -114,19 +117,6 @@ export const getPollHandler = async (req: Request, res: Response) => {
           orderBy: {
             createdAt: 'asc'
           }
-        },
-        votes: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                avatarColor: true,
-                avatarImage: true
-              }
-            }
-          },
-          orderBy: { createdAt: 'asc' }
         }
       }
     });
@@ -143,20 +133,54 @@ export const getPollHandler = async (req: Request, res: Response) => {
     const canSeeFullPoll = !poll.groupId || isMember || visibility === 'PRIVATE';
     const canSeeQuestion = canSeeFullPoll || visibility === 'PUBLIC_QUESTION' || visibility === 'PUBLIC_RESULTS';
     const canSeeResults = canSeeFullPoll || visibility === 'PUBLIC_RESULTS';
+    const isExpired = !!poll.expiresAt && poll.expiresAt.getTime() < Date.now();
 
     if (poll.groupId && !isMember && visibility === 'PRIVATE') {
       return res.status(403).json({ message: 'Este grupo es privado' });
     }
 
     const userVote = currentUserId
-      ? poll.votes.find((vote) => vote.userId === currentUserId) ?? null
+      ? await prisma.vote.findUnique({
+          where: {
+            pollId_userId: {
+              pollId: poll.id,
+              userId: currentUserId
+            }
+          },
+          select: {
+            id: true,
+            optionId: true,
+            createdAt: true
+          }
+        })
       : null;
-    const results = buildResults(poll.options, poll.votes);
+
+    const results = canSeeResults && (isExpired || !!userVote || visibility === 'PUBLIC_RESULTS')
+      ? buildResults(
+          poll.options,
+          await prisma.vote.findMany({
+            where: { pollId: poll.id },
+            select: {
+              optionId: true,
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatarColor: true,
+                  avatarImage: true
+                }
+              }
+            },
+            orderBy: { createdAt: 'asc' }
+          })
+        )
+      : [];
     const publicResults = results.map(({ voters: _voters, ...rest }) => rest);
 
     return res.json({
       id: poll.id,
       currentUserId,
+      expired: isExpired,
       groupId: poll.groupId,
       visibility,
       question: canSeeQuestion ? poll.question.text : null,
@@ -177,7 +201,6 @@ export const getPollHandler = async (req: Request, res: Response) => {
         : [],
       expiresAt: poll.expiresAt,
       createdAt: poll.createdAt,
-      expired: !!poll.expiresAt && poll.expiresAt.getTime() < Date.now(),
       userVote: canSeeFullPoll ? userVote : null,
       results: canSeeResults
         ? (canSeeFullPoll ? results : publicResults)

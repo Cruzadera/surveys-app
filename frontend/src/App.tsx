@@ -159,7 +159,7 @@ export default function App() {
 
         console.warn('[bootstrap] watchdog fallback → StandaloneAccess');
         setScreen({ name: 'StandaloneAccess' });
-      }, 12000);
+      }, 25000);
 
       const href =
         typeof window !== 'undefined' && typeof window.location?.href === 'string'
@@ -219,10 +219,17 @@ export default function App() {
             }
           }
           cleanUrl();
+          if (bootWatchdog) {
+            clearTimeout(bootWatchdog);
+            bootWatchdog = null;
+          }
           return;
         } catch (err) {
           console.warn('[bootstrap] session restore failed:', err);
-          await clearToken();
+          const status = (err as any)?.response?.status;
+          if (status === 401 || status === 403) {
+            await clearToken();
+          }
         }
       }
 
